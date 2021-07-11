@@ -34075,6 +34075,9 @@ var __WEBPACK_AMD_DEFINE_RESULT__;!(__WEBPACK_AMD_DEFINE_RESULT__ = (function (r
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
+"use strict";
+
+
 function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -34101,7 +34104,12 @@ var React = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 
 var ReactDOM = __webpack_require__(/*! react-dom */ "./node_modules/react-dom/index.js");
 
-var Client = __webpack_require__(/*! ./client */ "./src/main/js/client.js");
+var client = __webpack_require__(/*! ./client */ "./src/main/js/client.js");
+
+var follow = __webpack_require__(/*! ./follow */ "./src/main/js/follow.js"); // function to hop multiple links by "rel"
+
+
+var root = '/rest/api/v1';
 
 var App = /*#__PURE__*/function (_React$Component) {
   _inherits(App, _React$Component);
@@ -34115,79 +34123,406 @@ var App = /*#__PURE__*/function (_React$Component) {
 
     _this = _super.call(this, props);
     _this.state = {
-      tasks: []
+      tasks: [],
+      attributes: [],
+      pageSize: 2,
+      links: {}
     };
+    _this.updatePageSize = _this.updatePageSize.bind(_assertThisInitialized(_this));
+    _this.onCreate = _this.onCreate.bind(_assertThisInitialized(_this));
+    _this.onUpdate = _this.onUpdate.bind(_assertThisInitialized(_this));
+    _this.onDelete = _this.onDelete.bind(_assertThisInitialized(_this));
+    _this.onNavigate = _this.onNavigate.bind(_assertThisInitialized(_this));
     return _this;
   }
 
   _createClass(App, [{
-    key: "componentDidMount",
-    value: function componentDidMount() {
+    key: "loadFromServer",
+    value: function loadFromServer(pageSize) {
       var _this2 = this;
 
-      Client({
-        method: 'GET',
-        path: '/rest/api/v1/tasks'
-      }).done(function (response) {
+      follow(client, root, [{
+        rel: 'tasks',
+        params: {
+          size: pageSize
+        }
+      }]).then(function (taskCollection) {
+        return client({
+          method: 'GET',
+          path: taskCollection.entity._links.profile.href,
+          headers: {
+            'Accept': 'application/schema+json'
+          }
+        }).then(function (schema) {
+          _this2.schema = schema.entity;
+          return taskCollection;
+        });
+      }).done(function (taskCollection) {
         _this2.setState({
-          tasks: response.entity._embedded.tasks
+          tasks: taskCollection.entity._embedded.tasks,
+          attributes: Object.keys(_this2.schema.properties),
+          pageSize: pageSize,
+          links: taskCollection.entity._links
         });
       });
     }
   }, {
+    key: "onCreate",
+    value: function onCreate(newTask) {
+      var _this3 = this;
+
+      follow(client, root, ['tasks']).then(function (taskCollection) {
+        return client({
+          method: 'POST',
+          path: taskCollection.entity._links.self.href,
+          entity: newTask,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+      }).then(function (response) {
+        return follow(client, root, [{
+          rel: 'tasks',
+          params: {
+            'size': _this3.state.pageSize
+          }
+        }]);
+      }).done(function (response) {
+        if (typeof response.entity._links.last !== "undefined") {
+          _this3.onNavigate(response.entity._links.last.href);
+        } else {
+          _this3.onNavigate(response.entity._links.self.href);
+        }
+      });
+    }
+  }, {
+    key: "onUpdate",
+    value: function onUpdate(task) {
+      var _this4 = this;
+
+      client({
+        method: 'PATCH',
+        path: task._links.self.href,
+        entity: {
+          "isDone": task.isDone,
+          "finishDate": task.finishDate
+        },
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then(function (response) {
+        return follow(client, root, [{
+          rel: 'tasks',
+          params: {
+            'size': _this4.state.pageSize
+          }
+        }]);
+      }).done(function (response) {
+        if (typeof response.entity._links.last !== "undefined") {
+          _this4.onNavigate(response.entity._links.last.href);
+        } else {
+          _this4.onNavigate(response.entity._links.self.href);
+        }
+      });
+    }
+  }, {
+    key: "onDelete",
+    value: function onDelete(task) {
+      var _this5 = this;
+
+      client({
+        method: 'DELETE',
+        path: task._links.self.href
+      }).done(function (response) {
+        _this5.loadFromServer(_this5.state.pageSize);
+      });
+    }
+  }, {
+    key: "onNavigate",
+    value: function onNavigate(navUri) {
+      var _this6 = this;
+
+      client({
+        method: 'GET',
+        path: navUri
+      }).done(function (taskCollection) {
+        _this6.setState({
+          tasks: taskCollection.entity._embedded.tasks,
+          attributes: _this6.state.attributes,
+          pageSize: _this6.state.pageSize,
+          links: taskCollection.entity._links
+        });
+      });
+    }
+  }, {
+    key: "updatePageSize",
+    value: function updatePageSize(pageSize) {
+      if (pageSize !== this.state.pageSize) {
+        this.loadFromServer(pageSize);
+      }
+    }
+  }, {
+    key: "componentDidMount",
+    value: function componentDidMount() {
+      this.loadFromServer(this.state.pageSize);
+    }
+  }, {
     key: "render",
     value: function render() {
-      return /*#__PURE__*/React.createElement(TaskList, {
-        tasks: this.state.tasks
-      });
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(CreateDialog, {
+        attributes: this.state.attributes,
+        onCreate: this.onCreate
+      }), /*#__PURE__*/React.createElement(TaskList, {
+        tasks: this.state.tasks,
+        links: this.state.links,
+        pageSize: this.state.pageSize,
+        onNavigate: this.onNavigate,
+        onUpdate: this.onUpdate,
+        onDelete: this.onDelete,
+        updatePageSize: this.updatePageSize
+      }));
     }
   }]);
 
   return App;
 }(React.Component);
 
-var TaskList = /*#__PURE__*/function (_React$Component2) {
-  _inherits(TaskList, _React$Component2);
+var CreateDialog = /*#__PURE__*/function (_React$Component2) {
+  _inherits(CreateDialog, _React$Component2);
 
-  var _super2 = _createSuper(TaskList);
+  var _super2 = _createSuper(CreateDialog);
 
-  function TaskList() {
+  function CreateDialog(props) {
+    var _this7;
+
+    _classCallCheck(this, CreateDialog);
+
+    _this7 = _super2.call(this, props);
+    _this7.handleSubmit = _this7.handleSubmit.bind(_assertThisInitialized(_this7));
+    return _this7;
+  }
+
+  _createClass(CreateDialog, [{
+    key: "handleSubmit",
+    value: function handleSubmit(e) {
+      e.preventDefault();
+      var newTask = {};
+      newTask.taskDescription = ReactDOM.findDOMNode(this.refs.taskDescription).value.trim();
+      newTask.creationDate = Date.now();
+      this.props.onCreate(newTask);
+      ReactDOM.findDOMNode(this.refs.taskDescription).value = '';
+      window.location = "#";
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      var input = /*#__PURE__*/React.createElement("p", {
+        key: "taskDescription"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "text",
+        placeholder: "Description of the new task...",
+        ref: "taskDescription",
+        className: "field"
+      }));
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("a", {
+        href: "#addTask"
+      }, "Add Task"), /*#__PURE__*/React.createElement("div", {
+        id: "addTask",
+        className: "modalDialog"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("a", {
+        href: "#",
+        title: "Close",
+        className: "close"
+      }, "X"), /*#__PURE__*/React.createElement("h2", null, "New Task"), /*#__PURE__*/React.createElement("form", null, input, /*#__PURE__*/React.createElement("button", {
+        onClick: this.handleSubmit
+      }, "Add")))));
+    }
+  }]);
+
+  return CreateDialog;
+}(React.Component);
+
+var TaskList = /*#__PURE__*/function (_React$Component3) {
+  _inherits(TaskList, _React$Component3);
+
+  var _super3 = _createSuper(TaskList);
+
+  function TaskList(props) {
+    var _this8;
+
     _classCallCheck(this, TaskList);
 
-    return _super2.apply(this, arguments);
+    _this8 = _super3.call(this, props);
+    _this8.handleNavFirst = _this8.handleNavFirst.bind(_assertThisInitialized(_this8));
+    _this8.handleNavPrev = _this8.handleNavPrev.bind(_assertThisInitialized(_this8));
+    _this8.handleNavNext = _this8.handleNavNext.bind(_assertThisInitialized(_this8));
+    _this8.handleNavLast = _this8.handleNavLast.bind(_assertThisInitialized(_this8));
+    _this8.handleInput = _this8.handleInput.bind(_assertThisInitialized(_this8));
+    return _this8;
   }
 
   _createClass(TaskList, [{
+    key: "handleInput",
+    value: function handleInput(e) {
+      e.preventDefault();
+      var pageSize = ReactDOM.findDOMNode(this.refs.pageSize).value;
+
+      if (/^[0-9]+$/.test(pageSize)) {
+        this.props.updatePageSize(pageSize);
+      } else {
+        ReactDOM.findDOMNode(this.refs.pageSize).value = pageSize.substring(0, pageSize.length - 1);
+      }
+    }
+  }, {
+    key: "handleNavFirst",
+    value: function handleNavFirst(e) {
+      e.preventDefault();
+      this.props.onNavigate(this.props.links.first.href);
+    }
+  }, {
+    key: "handleNavPrev",
+    value: function handleNavPrev(e) {
+      e.preventDefault();
+      this.props.onNavigate(this.props.links.prev.href);
+    }
+  }, {
+    key: "handleNavNext",
+    value: function handleNavNext(e) {
+      e.preventDefault();
+      this.props.onNavigate(this.props.links.next.href);
+    }
+  }, {
+    key: "handleNavLast",
+    value: function handleNavLast(e) {
+      e.preventDefault();
+      this.props.onNavigate(this.props.links.last.href);
+    }
+  }, {
     key: "render",
     value: function render() {
+      var _this9 = this;
+
       var tasks = this.props.tasks.map(function (task) {
         return /*#__PURE__*/React.createElement(Task, {
           key: task._links.self.href,
-          task: task
+          task: task,
+          onUpdate: _this9.props.onUpdate,
+          onDelete: _this9.props.onDelete
         });
       });
-      return /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Description"), /*#__PURE__*/React.createElement("th", null, "Done?"), /*#__PURE__*/React.createElement("th", null, "Created"), /*#__PURE__*/React.createElement("th", null, "Finished")), tasks));
+      var navLinks = [];
+
+      if ("first" in this.props.links) {
+        navLinks.push( /*#__PURE__*/React.createElement("button", {
+          key: "first",
+          onClick: this.handleNavFirst
+        }, "<<"));
+      }
+
+      if ("prev" in this.props.links) {
+        navLinks.push( /*#__PURE__*/React.createElement("button", {
+          key: "prev",
+          onClick: this.handleNavPrev
+        }, "<"));
+      }
+
+      if ("next" in this.props.links) {
+        navLinks.push( /*#__PURE__*/React.createElement("button", {
+          key: "next",
+          onClick: this.handleNavNext
+        }, ">"));
+      }
+
+      if ("last" in this.props.links) {
+        navLinks.push( /*#__PURE__*/React.createElement("button", {
+          key: "last",
+          onClick: this.handleNavLast
+        }, ">>"));
+      }
+
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Description"), /*#__PURE__*/React.createElement("th", null, "Done"), /*#__PURE__*/React.createElement("th", null, "Created"), /*#__PURE__*/React.createElement("th", null, "Finished"), /*#__PURE__*/React.createElement("th", null)), tasks)), /*#__PURE__*/React.createElement("label", null, "Records per page "), /*#__PURE__*/React.createElement("input", {
+        ref: "pageSize",
+        defaultValue: this.props.pageSize,
+        onInput: this.handleInput
+      }), /*#__PURE__*/React.createElement("div", null, navLinks));
     }
   }]);
 
   return TaskList;
 }(React.Component);
 
-var Task = /*#__PURE__*/function (_React$Component3) {
-  _inherits(Task, _React$Component3);
+var Task = /*#__PURE__*/function (_React$Component4) {
+  _inherits(Task, _React$Component4);
 
-  var _super3 = _createSuper(Task);
+  var _super4 = _createSuper(Task);
 
-  function Task() {
+  function Task(props) {
+    var _this10;
+
     _classCallCheck(this, Task);
 
-    return _super3.apply(this, arguments);
+    _this10 = _super4.call(this, props);
+    _this10.handleDelete = _this10.handleDelete.bind(_assertThisInitialized(_this10));
+    _this10.handleInputChange = _this10.handleInputChange.bind(_assertThisInitialized(_this10));
+    return _this10;
   }
 
   _createClass(Task, [{
+    key: "handleDelete",
+    value: function handleDelete() {
+      this.props.onDelete(this.props.task);
+    }
+  }, {
+    key: "handleInputChange",
+    value: function handleInputChange(event) {
+      var target = event.target;
+      var value = target.type === 'checkbox' ? target.checked : target.value;
+      this.props.task.isDone = value;
+
+      if (value) {
+        this.props.task.finishDate = Date.now();
+      } else {
+        this.props.task.finishDate = null;
+      }
+
+      this.props.onUpdate(this.props.task);
+    }
+  }, {
+    key: "convertTimestamp",
+    value: function convertTimestamp(timestamp) {
+      // Split timestamp into [ Y, M, D, h, m, s ]
+      var splittedTime = timestamp.split(/[- :T+.]/); // Apply each element to the Date function
+
+      var date = new Date(Date.UTC(splittedTime[0], splittedTime[1] - 1, splittedTime[2], splittedTime[3] - 5, splittedTime[4], splittedTime[5])); //Convert to Local DateTime
+
+      return new Intl.DateTimeFormat('es-MX', {
+        dateStyle: 'long',
+        timeStyle: 'medium'
+      }).format(date);
+    }
+  }, {
     key: "render",
     value: function render() {
-      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.task.taskDescription), /*#__PURE__*/React.createElement("td", null, this.props.task.isDone), /*#__PURE__*/React.createElement("td", null, this.props.task.creationDate), /*#__PURE__*/React.createElement("td", null, this.props.task.finishDate));
+      var creationDate = this.props.task.creationDate;
+
+      if (creationDate != null) {
+        creationDate = this.convertTimestamp(creationDate);
+      }
+
+      var finishDate = this.props.task.finishDate;
+
+      if (finishDate != null) {
+        finishDate = this.convertTimestamp(finishDate);
+      }
+
+      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.task.taskDescription), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("form", null, /*#__PURE__*/React.createElement("input", {
+        name: "isDone",
+        type: "checkbox",
+        checked: this.props.task.isDone,
+        onChange: this.handleInputChange
+      }))), /*#__PURE__*/React.createElement("td", null, creationDate), /*#__PURE__*/React.createElement("td", null, finishDate), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+        onClick: this.handleDelete
+      }, "Delete")));
     }
   }]);
 
@@ -34230,6 +34565,55 @@ module.exports = rest.wrap(mime, {
     'Accept': 'application/hal+json'
   }
 });
+
+/***/ }),
+
+/***/ "./src/main/js/follow.js":
+/*!*******************************!*\
+  !*** ./src/main/js/follow.js ***!
+  \*******************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = function follow(api, rootPath, relArray) {
+  var root = api({
+    method: 'GET',
+    path: rootPath
+  });
+  return relArray.reduce(function (root, arrayItem) {
+    var rel = typeof arrayItem === 'string' ? arrayItem : arrayItem.rel;
+    return traverseNext(root, rel, arrayItem);
+  }, root);
+
+  function traverseNext(root, rel, arrayItem) {
+    return root.then(function (response) {
+      if (hasEmbeddedRel(response.entity, rel)) {
+        return response.entity._embedded[rel];
+      }
+
+      if (!response.entity._links) {
+        return [];
+      }
+
+      if (typeof arrayItem === 'string') {
+        return api({
+          method: 'GET',
+          path: response.entity._links[rel].href
+        });
+      } else {
+        return api({
+          method: 'GET',
+          path: response.entity._links[rel].href,
+          params: arrayItem.params
+        });
+      }
+    });
+  }
+
+  function hasEmbeddedRel(entity, rel) {
+    return entity._embedded && entity._embedded.hasOwnProperty(rel);
+  }
+};
 
 /***/ }),
 
