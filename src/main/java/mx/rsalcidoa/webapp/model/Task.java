@@ -13,12 +13,6 @@ import javax.persistence.TemporalType;
 @Entity
 public class Task {
 	
-	public Task() {}
-
-	public Task(String taskDescription) {
-		this.taskDescription = taskDescription;
-	}
-
 	@Id @GeneratedValue @Column(name="TASK_ID")
 	private Long taskID;
 	
@@ -35,6 +29,12 @@ public class Task {
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "FINISH_DATE")
     private Calendar finishDate;
+    
+	public Task() {}
+
+	public Task(String taskDescription) {
+		this.taskDescription = taskDescription;
+	}
 
 	public Long getTaskID() {
 		return taskID;
