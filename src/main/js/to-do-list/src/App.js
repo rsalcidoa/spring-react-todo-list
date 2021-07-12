@@ -8,16 +8,17 @@ import Typography from "@material-ui/core/Typography";
 
 function App() {
 
+  const apiUrl = 'http://localhost:8080/rest/api/v1/tasks';
+
   const TaskLoading = WithTableLoading(TaskTable);
   const [appState, setAppState] = useState({
     loading: false,
     tasks: null,
   });
 
-  useEffect(() => {
+  useEffect(async () => {
     setAppState({ loading: true });
-    const apiUrl = 'http://localhost:8080/rest/api/v1/tasks';
-    axios.get(apiUrl).then((tasks) => {
+    await axios.get(apiUrl).then((tasks) => {
       const allTasks = tasks.data._embedded.tasks;
       setAppState({ loading: false, tasks: allTasks });
     });
@@ -27,7 +28,7 @@ function App() {
     <div className='App'>
       <Container> 
         <div className='container'>
-          <Typography color="textPrimary" gutterBottom variant="h1" align="center">
+          <Typography color="textPrimary" gutterBottom variant="h3" align="center">
             My Tasks
           </Typography>
         </div>
