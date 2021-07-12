@@ -15,6 +15,10 @@
 	<description>To-Do List Web App with Spring and React</description>
 	<properties>
 		<java.version>1.8</java.version>
+		<frontend-src-dir>${project.basedir}/src/main/js/to-do-list</frontend-src-dir>
+		<node.version>v14.16.1</node.version>
+		<npm.version>6.14.12</npm.version>
+		<frontend-maven-plugin.version>1.9.1</frontend-maven-plugin.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -25,11 +29,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-rest</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-thymeleaf</artifactId>
-		</dependency>
-
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
@@ -49,37 +48,73 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
 			<plugin>
-				<groupId>com.github.eirslett</groupId>
-				<artifactId>frontend-maven-plugin</artifactId>
-				<version>1.9.1</version>
-				<configuration>
-					<installDirectory>target</installDirectory>
-				</configuration>
-				<executions>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>${frontend-maven-plugin.version}</version>
+                <configuration>
+                    <workingDirectory>${frontend-src-dir}</workingDirectory>
+        			<installDirectory>${project.build.directory}</installDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install node and npm</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <configuration>
+							<nodeVersion>${node.version}</nodeVersion>
+							<npmVersion>${npm.version}</npmVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm install</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm run build</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
 					<execution>
-						<id>install node and npm</id>
-						<goals>
-							<goal>install-node-and-npm</goal>
-						</goals>
-						<configuration>
-							<nodeVersion>v14.16.1</nodeVersion>
-							<npmVersion>6.14.12</npmVersion>
-						</configuration>
-					</execution>
-					<execution>
-						<id>npm install</id>
+						<id>build-frontend</id>
 						<goals>
 							<goal>npm</goal>
 						</goals>
+						<phase>prepare-package</phase>
 						<configuration>
-							<arguments>install</arguments>
+							<arguments>build</arguments>
 						</configuration>
 					</execution>
+                </executions>
+            </plugin>
+			<plugin>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.0.1</version>
+				<executions>
 					<execution>
-					    <id>webpack build</id>
-					    <goals>
-					        <goal>webpack</goal>
-					    </goals>
+						<id>position-react-build</id>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<phase>prepare-package</phase>
+						<configuration>
+							<outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${frontend-src-dir}/build</directory>
+									<filtering>false</filtering>
+								</resource>
+							</resources>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
