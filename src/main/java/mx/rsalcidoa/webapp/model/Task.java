@@ -24,7 +24,7 @@ public class Task {
     
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "CREATION_DATE")
-    private Calendar creationDate;
+    private Calendar creationDate = Calendar.getInstance();
     
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "FINISH_DATE")

@@ -16,12 +16,15 @@ function App() {
     tasks: null,
   });
 
-  useEffect(async () => {
+  useEffect(() => {
     setAppState({ loading: true });
-    await axios.get(apiUrl).then((tasks) => {
-      const allTasks = tasks.data._embedded.tasks;
-      setAppState({ loading: false, tasks: allTasks });
-    });
+    async function getTasks() {
+      await axios.get(apiUrl).then((tasks) => {
+        const allTasks = tasks.data._embedded.tasks;
+        setAppState({ loading: false, tasks: allTasks });
+      });
+    }
+    getTasks();
   }, [setAppState]);
 
   return (
