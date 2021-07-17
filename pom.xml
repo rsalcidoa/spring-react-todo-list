@@ -13,6 +13,29 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<name>spring-react-todo-list</name>
 	<description>To-Do List Web App with Spring and React</description>
+	<profiles>
+		<profile>
+			<id>dev</id>
+			<properties>
+				<spring.profiles.active>dev</spring.profiles.active>
+			</properties>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+		</profile>
+		<profile>
+			<id>test</id>
+			<properties>
+				<spring.profiles.active>test</spring.profiles.active>
+			</properties>
+		</profile>
+		<profile>
+			<id>prod</id>
+			<properties>
+				<spring.profiles.active>prod</spring.profiles.active>
+			</properties>
+		</profile>
+	</profiles>
 	<properties>
 		<java.version>1.8</java.version>
 		<frontend-src-dir>${project.basedir}/src/main/js/to-do-list</frontend-src-dir>
@@ -42,6 +65,12 @@
 	</dependencies>
 
 	<build>
+		<resources>
+        	<resource>
+            	<directory>src/main/resources</directory>
+            	<filtering>true</filtering>
+        	</resource>
+    	</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

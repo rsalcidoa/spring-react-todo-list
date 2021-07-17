@@ -19,8 +19,9 @@ public class DatabaseLoader implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
-
-		this.taskRepo.save(new Task("Task 1"));
+		if (this.taskRepo.count() == 0) {
+			this.taskRepo.save(new Task("Example Task"));	
+		}
 	}
 
 }

@@ -10,9 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,8 +34,15 @@ class SpringReactTodoListApplicationTests {
 
 	@Autowired
 	ITaskRepository iTaskRepository;
+
+	@DynamicPropertySource
+	static void dynamicProperties(DynamicPropertyRegistry registry) {
+		registry.add("spring.datasource.url", () -> "jdbc:h2:mem:testdb");
+	}
+
+	@Value("${base.url}")
+	private String baseUrl;
 	
-	String baseUrl = "http://localhost:8080/rest/api/v1/tasks";
 	String currentTaskUrl = "$._links.self.href";
 	
 	@Test
